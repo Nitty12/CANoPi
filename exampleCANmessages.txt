@@ -1,0 +1,271 @@
+Timestamp: 1619423536.056997  
+Message: NMH_Gateway(
+    NM_Gateway_SNI: 16.0,
+    NM_Gateway_CBV_AWB: 0.0,
+    NM_Gateway_CBV_CRI: 0.0,
+    NM_Gateway_NM_State: 4.0,
+    NM_Gateway_Car_Wakeup: 0.0,
+    NM_Gateway_UDS_CC: 0.0,
+    NM_Gateway_NM_aktiv_KL15: 0.0,
+    NM_Gateway_NM_aktiv_Diagnose: 0.0,
+    NM_Gateway_NM_aktiv_Tmin: 0.0,
+    NM_Gateway_NM_aktiv_CWU: 0.0,
+    NM_Gateway_NM_aktiv_FC: 0.0,
+    NM_Gateway_NM_aktiv_Connect: 0.0,
+    NM_Gateway_NM_aktiv_EM: 0.0,
+    NM_Gateway_NM_aktiv_OBDC: 0.0,
+    NM_Gateway_NM_aktiv_Buskopplung: 0.0,
+    NM_Gateway_NM_aktiv_LIN2: 0.0,
+    NM_Gateway_CAB: 0.0
+)
+
+Timestamp: 1619423536.057159  
+Message: Klemmen_Status_01(
+    Klemmen_Status_01_CRC: 203,
+    Klemmen_Status_01_BZ: 12,
+    RSt_Fahrerhinweise: 0.0,
+    ZAS_Kl_S: 0.0,
+    ZAS_Kl_15: 1.0,
+    ZAS_Kl_X: 0.0,
+    ZAS_Kl_50_Startanforderung: 0.0,
+    BCM_Remotestart_Betrieb: 0.0,
+    ZAS_Kl_Infotainment: 0.0,
+    BCM_Remotestart_KL15_Anf: 0.0,
+    BCM_Remotestart_MO_Start: 0.0,
+    KST_Warn_P1_ZST_def: 0.0,
+    KST_Warn_P2_ZST_def: 0.0,
+    KST_Fahrerhinweis_1: 0.0,
+    KST_Fahrerhinweis_2: 0.0,
+    BCM_Ausparken_Betrieb: 0.0,
+    KST_Fahrerhinweis_4: 0.0,
+    KST_Fahrerhinweis_5: 0.0,
+    KST_Fahrerhinweis_6: 0.0
+)
+
+Timestamp: 1619423536.057420  
+Message: ESP_21(
+    ESP_21_CRC: 179,
+    ESP_21_BZ: 11,
+    BR_Eingriffsmoment: 513,
+    ESP_Diagnose: 0.0,
+    ESC_v_Signal_Qualifier_High_Low: 6.0,
+    ESP_Vorsteuerung: 0.0,
+    OBD_Schlechtweg: 0.0,
+    OBD_QBit_Schlechtweg: 1.0,
+    ESP_v_Signal: 655.34 Unit_KiloMeterPerHour,
+    ASR_Tastung_passiv: 0.0,
+    ESP_Tastung_passiv: 0.0,
+    ESP_Systemstatus: 0.0,
+    ASR_Schalteingriff: 0.0,
+    ESP_QBit_v_Signal: 1.0,
+    ABS_Bremsung: 0.0,
+    ASR_Anf: 0.0,
+    MSR_Anf: 0.0,
+    EBV_Eingriff: 0.0,
+    EDS_Eingriff: 0.0,
+    ESP_Eingriff: 0.0,
+    ESP_ASP: 0.0,
+    ESC_Neutralschaltung: 0.0
+)
+
+Timestamp: 1619423536.076290  
+Message: SARA_11(
+    SARA_11_CRC: 227,
+    SARA_11_BZ: 8,
+    SARA_Accel_X_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Accel_Y_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Omega_Z_r: 0.0 Unit_DegreOfArcPerSecon,
+    SARA_CF_Accel_X_r: 4.0,
+    SARA_CF_Accel_Y_r: 4.0,
+    SARA_CF_Omega_Z_r: 4.0
+)
+
+Timestamp: 1619423536.096310  
+Message: SARA_11(
+    SARA_11_CRC: 68,
+    SARA_11_BZ: 9,
+    SARA_Accel_X_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Accel_Y_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Omega_Z_r: 0.0 Unit_DegreOfArcPerSecon,
+    SARA_CF_Accel_X_r: 4.0,
+    SARA_CF_Accel_Y_r: 4.0,
+    SARA_CF_Omega_Z_r: 4.0
+)
+
+Timestamp: 1619423536.116289  
+Message: SARA_11(
+    SARA_11_CRC: 38,
+    SARA_11_BZ: 10,
+    SARA_Accel_X_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Accel_Y_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Omega_Z_r: 0.0 Unit_DegreOfArcPerSecon,
+    SARA_CF_Accel_X_r: 4.0,
+    SARA_CF_Accel_Y_r: 4.0,
+    SARA_CF_Omega_Z_r: 4.0
+)
+
+Timestamp: 1619423536.136298  
+Message: SARA_11(
+    SARA_11_CRC: 230,
+    SARA_11_BZ: 11,
+    SARA_Accel_X_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Accel_Y_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Omega_Z_r: 0.0 Unit_DegreOfArcPerSecon,
+    SARA_CF_Accel_X_r: 4.0,
+    SARA_CF_Accel_Y_r: 4.0,
+    SARA_CF_Omega_Z_r: 4.0
+)
+
+Timestamp: 1619423536.156396  
+Message: SARA_11(
+    SARA_11_CRC: 9,
+    SARA_11_BZ: 12,
+    SARA_Accel_X_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Accel_Y_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Omega_Z_r: 0.0 Unit_DegreOfArcPerSecon,
+    SARA_CF_Accel_X_r: 4.0,
+    SARA_CF_Accel_Y_r: 4.0,
+    SARA_CF_Omega_Z_r: 4.0
+)
+
+Timestamp: 1619423536.156505  
+Message: Klemmen_Status_01(
+    Klemmen_Status_01_CRC: 126,
+    Klemmen_Status_01_BZ: 13,
+    RSt_Fahrerhinweise: 0.0,
+    ZAS_Kl_S: 0.0,
+    ZAS_Kl_15: 1.0,
+    ZAS_Kl_X: 0.0,
+    ZAS_Kl_50_Startanforderung: 0.0,
+    BCM_Remotestart_Betrieb: 0.0,
+    ZAS_Kl_Infotainment: 0.0,
+    BCM_Remotestart_KL15_Anf: 0.0,
+    BCM_Remotestart_MO_Start: 0.0,
+    KST_Warn_P1_ZST_def: 0.0,
+    KST_Warn_P2_ZST_def: 0.0,
+    KST_Fahrerhinweis_1: 0.0,
+    KST_Fahrerhinweis_2: 0.0,
+    BCM_Ausparken_Betrieb: 0.0,
+    KST_Fahrerhinweis_4: 0.0,
+    KST_Fahrerhinweis_5: 0.0,
+    KST_Fahrerhinweis_6: 0.0
+)
+
+Timestamp: 1619423536.156704  
+Message: SARA_10_8Byte(
+    SARA_Accel_Y_010_02: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Accel_X_010_02: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Omega_Z_010_02: 0.0 Unit_DegreOfArcPerSecon,
+    SARA_CF_Accel_X_010_02: 4.0,
+    SARA_CF_Accel_Y_010_02: 4.0,
+    SARA_CF_Omega_Z_010_02: 4.0
+)
+
+Timestamp: 1619423536.156996  
+Message: NMH_Gateway(
+    NM_Gateway_SNI: 16.0,
+    NM_Gateway_CBV_AWB: 0.0,
+    NM_Gateway_CBV_CRI: 0.0,
+    NM_Gateway_NM_State: 4.0,
+    NM_Gateway_Car_Wakeup: 0.0,
+    NM_Gateway_UDS_CC: 0.0,
+    NM_Gateway_NM_aktiv_KL15: 0.0,
+    NM_Gateway_NM_aktiv_Diagnose: 0.0,
+    NM_Gateway_NM_aktiv_Tmin: 0.0,
+    NM_Gateway_NM_aktiv_CWU: 0.0,
+    NM_Gateway_NM_aktiv_FC: 0.0,
+    NM_Gateway_NM_aktiv_Connect: 0.0,
+    NM_Gateway_NM_aktiv_EM: 0.0,
+    NM_Gateway_NM_aktiv_OBDC: 0.0,
+    NM_Gateway_NM_aktiv_Buskopplung: 0.0,
+    NM_Gateway_NM_aktiv_LIN2: 0.0,
+    NM_Gateway_CAB: 0.0
+)
+
+Timestamp: 1619423536.157229  
+Message: ESP_21(
+    ESP_21_CRC: 42,
+    ESP_21_BZ: 12,
+    BR_Eingriffsmoment: 513,
+    ESP_Diagnose: 0.0,
+    ESC_v_Signal_Qualifier_High_Low: 6.0,
+    ESP_Vorsteuerung: 0.0,
+    OBD_Schlechtweg: 0.0,
+    OBD_QBit_Schlechtweg: 1.0,
+    ESP_v_Signal: 655.34 Unit_KiloMeterPerHour,
+    ASR_Tastung_passiv: 0.0,
+    ESP_Tastung_passiv: 0.0,
+    ESP_Systemstatus: 0.0,
+    ASR_Schalteingriff: 0.0,
+    ESP_QBit_v_Signal: 1.0,
+    ABS_Bremsung: 0.0,
+    ASR_Anf: 0.0,
+    MSR_Anf: 0.0,
+    EBV_Eingriff: 0.0,
+    EDS_Eingriff: 0.0,
+    ESP_Eingriff: 0.0,
+    ESP_ASP: 0.0,
+    ESC_Neutralschaltung: 0.0
+)
+
+Timestamp: 1619423536.157466  
+Message: ESP_03(
+    ESP_03_CRC: 152,
+    ESP_03_BZ: 12,
+    ESP_VL_FR: 0.0,
+    ESP_VR_FR: 0.0,
+    ESP_HL_FR: 0.0,
+    ESP_HR_FR: 0.0,
+    ESP_VL_Radgeschw: 409.40000000000003 Unit_KiloMeterPerHour,
+    ESP_VR_Radgeschw: 409.40000000000003 Unit_KiloMeterPerHour,
+    ESP_HL_Radgeschw: 409.40000000000003 Unit_KiloMeterPerHour,
+    ESP_HR_Radgeschw: 409.40000000000003 Unit_KiloMeterPerHour
+)
+
+Timestamp: 1619423536.176393  
+Message: SARA_11(
+    SARA_11_CRC: 218,
+    SARA_11_BZ: 13,
+    SARA_Accel_X_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Accel_Y_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Omega_Z_r: 0.0 Unit_DegreOfArcPerSecon,
+    SARA_CF_Accel_X_r: 4.0,
+    SARA_CF_Accel_Y_r: 4.0,
+    SARA_CF_Omega_Z_r: 4.0
+)
+
+Timestamp: 1619423536.196296  
+Message: SARA_11(
+    SARA_11_CRC: 88,
+    SARA_11_BZ: 14,
+    SARA_Accel_X_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Accel_Y_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Omega_Z_r: 0.0 Unit_DegreOfArcPerSecon,
+    SARA_CF_Accel_X_r: 4.0,
+    SARA_CF_Accel_Y_r: 4.0,
+    SARA_CF_Omega_Z_r: 4.0
+)
+
+Timestamp: 1619423536.216256  
+Message: SARA_11(
+    SARA_11_CRC: 43,
+    SARA_11_BZ: 15,
+    SARA_Accel_X_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Accel_Y_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Omega_Z_r: 0.0 Unit_DegreOfArcPerSecon,
+    SARA_CF_Accel_X_r: 4.0,
+    SARA_CF_Accel_Y_r: 4.0,
+    SARA_CF_Omega_Z_r: 4.0
+)
+
+Timestamp: 1619423536.236289  
+Message: SARA_11(
+    SARA_11_CRC: 210,
+    SARA_11_BZ: 0,
+    SARA_Accel_X_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Accel_Y_r: 0.0 Unit_MeterPerSeconSquar,
+    SARA_Omega_Z_r: 0.0 Unit_DegreOfArcPerSecon,
+    SARA_CF_Accel_X_r: 4.0,
+    SARA_CF_Accel_Y_r: 4.0,
+    SARA_CF_Omega_Z_r: 4.0
+)
