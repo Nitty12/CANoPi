@@ -1,4 +1,4 @@
-
+import time
 import os
 import subprocess
 import can
@@ -125,12 +125,17 @@ def send_initial_value(start_value, sock):
   
 
 def recieve_udp(sock, client, data_length):
+    data, addr = sock.recvfrom(1024)
+    data_unpacked_tuple = struct.unpack('%sf' % data_length, data)
+    print('Recieved message: ', data_unpacked_tuple)
+    return data, data_unpacked_tuple
+    
+
+def save_and_publish(data, data_unpacked_tuple, client):
     with open("/home/pi/DataFromModel/data_log.csv", "a") as csv_file:
         try:
-            data, addr = sock.recvfrom(1024)
-            data_tuple = struct.unpack('%sf' % data_length, data)
-            print('Recieved message: ', data_tuple)
-            csv_file.write("{0}\n".format(data_tuple[0]))
+            print('>>>>>Saved message: ', data_unpacked_tuple)
+            csv_file.write("{0}\n".format(data_unpacked_tuple[0]))
             csv_file.flush()
             
             client.publish('test/topic', data)
@@ -143,18 +148,32 @@ def recieve_udp(sock, client, data_length):
     return 0
 
 
+def check_CAN_sleep(bus):
+    # Check CAN messages for 5 seconds
+    sec = 0
+    while sec <= 5:
+        # Blocking read with timeout of 1 second
+        msg = bus.recv(1.0)
+        if msg is not None:
+            return False
+        sec += 1
+    return True
+    
+    
 def check_CAN_status():
     with can.interface.Bus(bustype="socketcan", channel='can0', bitrate=500000) as bus:
         status = False
         try:
-            while True:
+            # Check for 2 seconds
+            t_end = time.time() + 60*2
+            while time.time() < t_end:
                 #Recieve all the CAN messages
                 msg = bus.recv(1)
-                
                 if msg is not None:
                     status = True
                     return status
-                
+                    
+            return status   
         except:
             return status
                 
@@ -176,34 +195,55 @@ def start_communication(db, start_value, client):
             sock_recieve.settimeout(0.05)
             
             err = 0
+            
+            # Save messages every 1 minute
+            sampling_time = 0.05
+            interval = 10
+            counter = 0 
+            
             while True:
                 try:
+                    counter += 1
+                    
                     #Recieve all the CAN messages
                     msg = bus.recv(1)
-                    
+                    # Check for 5 seconds whether the CAN bus is sleeping 
+                    if msg is None:
+                        CAN_sleeping = check_CAN_sleep(bus)
+                        if CAN_sleeping:
+                            return 1
                     #Format the message according to the CAN database file & send via UDP
-                    if msg is not None:
+                    else:
                         err = format_and_send_CAN(msg, sock_send, db)
                             
                     # Send the Initial values to the model via UDP
                     err = send_initial_value(start_value, sock_send)
                     
-                    # Recieve current values from the model via UDP and save and publish it
-                    err = recieve_udp(sock_recieve, client, data_length=1)
+                    # Recieve current values from the model via UDP
+                    data, data_unpacked_tuple = recieve_udp(sock_recieve, client, data_length=1)
+                    
+                    if counter > interval/sampling_time:
+                        # Save to a file and publish via MQTT 
+                        save_and_publish(data, data_unpacked_tuple, client)
+                        counter = 0
                     
                 except KeyboardInterrupt:
-                    print('Interrupted')
-                    break
+                    print('Interrupted by user')
+                    return 1
+                    
+                except:
+                    pass
 
 
 if __name__ == "__main__":
+    t_start = time.time()
+    
     print('Reading the dbc file ...')
     path = os.path.dirname(os.path.abspath(__file__))
     db = cantools.database.load_file(os.path.join(path, 'MLBevo_Gen2_MLBevo_ICAN_KMatrix_V8.21.01F_20210129_EICR.dbc'))
     print('Completed reading the dbc file')
 
     try:
-        print('main fn')
         # Check if recieving CAN messages
         CAN_available = check_CAN_status()
         
@@ -223,7 +263,10 @@ if __name__ == "__main__":
             start_prog = subprocess.Popen(model_start_command, shell=True, stdin=None, stdout=None, stderr=None, close_fds=True)
             print('Starting model')
             
-            start_communication(db, start_value, client)
+            shutdown_trigger = start_communication(db, start_value, client)
+            
+            if shutdown_trigger:
+                print('-------Shut down trigger here -------')
             
             # Stop the simulink model
             model_stop_command = 'sudo killall /home/pi/MATLAB_ws/R2020b/C/PM_Sandbox/Code/Matlab/Reifenverschleiss/Online_Modelle/Raspberry_-_Copy_Nitty/Test.elf'
@@ -231,5 +274,5 @@ if __name__ == "__main__":
             print('Stopping model')  
             
     except:
-        pass
+        print('Error in main module')
         
