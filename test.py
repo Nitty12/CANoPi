@@ -45,11 +45,10 @@ def decode_message(db, input_msg):
     
     return decoded_signals
     
-
-def send_SARA_11(formatted, db, msg):
-    message_name = 'SARA_11'
-    if re.match(rf"\n{re.escape(message_name)}\(\n", formatted) is not None:
-        decoded_signals = decode_message(db, msg)
+   
+def get_msg_by_name(message_name, formatted_msg, db, msg):
+    if re.match(rf"\n{re.escape(message_name)}\(\n", formatted_msg) is not None:
+        decoded_signals = decode_message(ICAN_db, msg)
         
         # Serializing the data to sned over network
         signal_values = list(decoded_signals.values())
@@ -58,17 +57,8 @@ def send_SARA_11(formatted, db, msg):
         return udp_msg
     else:
         return None
-   
-
-def format_and_send_CAN(msg, sock, db):
-    port = 6363
-    
-    timestamp = msg.timestamp
-    formatted = format_message_by_frame_id(db, msg.arbitration_id, msg.data, decode_choices=None,
-                                            single_line=False)
-    #Select the message to send
-    udp_msg = send_SARA_11(formatted, db, msg)
-    
+        
+def send_via_udp(udp_msg, port):
     #Send the message
     if udp_msg is not None:
         try:
@@ -77,11 +67,44 @@ def format_and_send_CAN(msg, sock, db):
         # except:
             # pass
             #print('Cannot send UDP messages')
+            return True
         except Exception as e:
             return str(e)
     else:
-        pass
-        #print('Message not recieved')
+        return False
+        #print('Message not recieved')    
+        
+            
+def format_and_send_CAN(msg_list, sock, db_list):
+    # Both the CAN may contain messages with same name
+    ICAN_msg = msg_list[0]
+    ECAN_msg = msg_list[1]
+    ICAN_db = db_list[0]
+    ECAN_db = db_list[1]  
+    
+    formatted_ICAN_msg = format_message_by_frame_id(ICAN_db, ICAN_msg.arbitration_id, ICAN_msg.data, decode_choices=None,
+                                            single_line=False)
+
+    formatted_ECAN_msg = format_message_by_frame_id(ECAN_db, ECAN_msg.arbitration_id, ECAN_msg.data, decode_choices=None,
+                                            single_line=False)      
+
+    #Select the message to send
+    ICAN_msg_names = ['LWI_01', 'SARA_11', 'Fahrwerk_01', 'ESP_05', 'Kombi_03', 'NavData_03', 'NavData_02']
+    ports = [6001, 6002, 6003, 6004, 6005, 6006, 6007]
+    for name, port in zip(ICAN_msg_names, ports):
+        udp_msg = get_msg_by_name(name, formatted_ICAN_msg, ICAN_db, ICAN_msg)
+        sent = send_via_udp(udp_msg, port)
+        if sent:
+            break
+            
+    ECAN_msg_names = ['ESP_03', 'DEV_RDK_Resp_03',  'DEV_RDK_Resp_04', 'DEV_RDK_Resp_05',  'DEV_RDK_Resp_06', 'DEV_RDK_Resp_07',  'DEV_RDK_Resp_08', 'DEV_RDK_Resp_09',  'DEV_RDK_Resp_0A', 'Klemmen_Status_01']
+    ports = [7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008, 7009, 7010]
+    for name, port in zip(ECAN_msg_names, ports):
+        udp_msg = get_msg_by_name(name, formatted_ECAN_msg, ECAN_db, ECAN_msg)
+        sent = send_via_udp(udp_msg, port)
+        if sent:
+            break    
+    
     return 0
     
     
@@ -131,7 +154,12 @@ def recieve_udp(sock, client, data_length):
     return data, data_unpacked_tuple
     
 
-def save_and_publish(data, data_unpacked_tuple, client):
+def save_and_publish(data, data_unpacked_tuple, client, first_time = []):
+    if first_time == []:
+        os.system('sudo rm /home/pi/DataFromModel/data_log.csv')
+        print('Deleted old log file')
+        first_time.append('Entered once')
+        
     with open("/home/pi/DataFromModel/data_log.csv", "a") as csv_file:
         try:
             print('>>>>>Saved message: ', data_unpacked_tuple)
@@ -148,28 +176,32 @@ def save_and_publish(data, data_unpacked_tuple, client):
     return 0
 
 
-def check_CAN_sleep(bus):
+def check_CAN_sleep(ICAN_bus, ECAN_bus):
     # Check CAN messages for 5 seconds
     sec = 0
     while sec <= 5:
-        # Blocking read with timeout of 1 second
-        msg = bus.recv(1.0)
-        if msg is not None:
+        # Blocking read with timeout of 0.5 second
+        ICAN_msg = ICAN_bus.recv(0.5)
+        ECAN_msg = ECAN_bus.recv(0.5)
+        
+        # Check for 5 seconds whether the CAN bus is sleeping 
+        if ICAN_msg is not None or ECAN_msg is not None:
             return False
         sec += 1
     return True
     
     
 def check_CAN_status():
-    with can.interface.Bus(bustype="socketcan", channel='can0', bitrate=500000) as bus:
+    with can.interface.Bus(bustype="socketcan", channel='can0', bitrate=500000) as ICAN_bus, can.interface.Bus(bustype="socketcan", channel='can1', bitrate=500000) as ECAN_bus:
         status = False
         try:
             # Check for 2 seconds
             t_end = time.time() + 60*2
             while time.time() < t_end:
                 #Recieve all the CAN messages
-                msg = bus.recv(1)
-                if msg is not None:
+                ICAN_msg = ICAN_bus.recv(0.5)
+                ECAN_msg = ECAN_bus.recv(0.5)
+                if ICAN_msg is not None or ECAN_msg is not None:
                     status = True
                     return status
                     
@@ -178,13 +210,13 @@ def check_CAN_status():
             return status
                 
 
-def start_communication(db, start_value, client):
+def start_communication(ICAN_db, ECAN_db, start_value, client):
     """Receives all messages, select the needed message and send via UDP
         Send the initial values to the model and recieve the current outputs
         from the model and save it. Additionally send the output over 
         encrypted MQTT"""
 
-    with can.interface.Bus(bustype="socketcan", channel='can0', bitrate=500000) as bus:
+    with can.interface.Bus(bustype="socketcan", channel='can0', bitrate=500000) as ICAN_bus, can.interface.Bus(bustype="socketcan", channel='can1', bitrate=500000) as ECAN_bus:
         
         # Generate a UDP socket
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock_send, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock_recieve:
@@ -206,15 +238,17 @@ def start_communication(db, start_value, client):
                     counter += 1
                     
                     #Recieve all the CAN messages
-                    msg = bus.recv(1)
+                    ICAN_msg = ICAN_bus.recv(0.5)
+                    ECAN_msg = ECAN_bus.recv(0.5)
+                    
                     # Check for 5 seconds whether the CAN bus is sleeping 
-                    if msg is None:
-                        CAN_sleeping = check_CAN_sleep(bus)
+                    if ICAN_msg is None and ECAN_msg is None:
+                        CAN_sleeping = check_CAN_sleep(ICAN_bus, ECAN_bus)
                         if CAN_sleeping:
                             return 1
                     #Format the message according to the CAN database file & send via UDP
                     else:
-                        err = format_and_send_CAN(msg, sock_send, db)
+                        err = format_and_send_CAN([ICAN_msg, ECAN_msg], sock_send, [ICAN_db, ECAN_db])
                             
                     # Send the Initial values to the model via UDP
                     err = send_initial_value(start_value, sock_send)
@@ -240,7 +274,8 @@ if __name__ == "__main__":
     
     print('Reading the dbc file ...')
     path = os.path.dirname(os.path.abspath(__file__))
-    db = cantools.database.load_file(os.path.join(path, 'MLBevo_Gen2_MLBevo_ICAN_KMatrix_V8.21.01F_20210129_EICR.dbc'))
+    ICAN_db = cantools.database.load_file(os.path.join(path, 'MLBevo_Gen2_MLBevo_ICAN_KMatrix_V8.19.05F_20200420_AM.dbc'))
+    ECAN_db = cantools.database.load_file(os.path.join(path, 'MLBevo_Gen2_MLBevo_ECAN_KMatrix_V8.15.00F_20171109_SE_RDK_merged.dbc'))
     print('Completed reading the dbc file')
 
     try:
@@ -251,7 +286,6 @@ if __name__ == "__main__":
             # Copy the previous log for input to model
             if os.path.isfile('/home/pi/DataFromModel/data_log.csv'):
                 os.system('sudo cp /home/pi/DataFromModel/data_log.csv /home/pi/DataToModel/data_log.csv')
-                os.system('sudo rm /home/pi/DataFromModel/data_log.csv')
                 print('Completed copying files')
             
             start_value = get_initial_values()
@@ -259,17 +293,18 @@ if __name__ == "__main__":
             client = MQTT_initialize()
 
             # Start the simulink model
-            model_start_command = 'sudo /home/pi/MATLAB_ws/R2020b/C/PM_Sandbox/Code/Matlab/Reifenverschleiss/Online_Modelle/Raspberry_-_Copy_Nitty/Test.elf'
+            model_start_command = 'sudo /home/pi/MATLAB_ws/R2020b/TWE_Raspberry.elf'
             start_prog = subprocess.Popen(model_start_command, shell=True, stdin=None, stdout=None, stderr=None, close_fds=True)
             print('Starting model')
             
-            shutdown_trigger = start_communication(db, start_value, client)
+            shutdown_trigger = start_communication(ICAN_db, ECAN_db, start_value, client)
             
             if shutdown_trigger:
+                #subprocess.call("sudo shutdown -h now", shell=True)
                 print('-------Shut down trigger here -------')
             
             # Stop the simulink model
-            model_stop_command = 'sudo killall /home/pi/MATLAB_ws/R2020b/C/PM_Sandbox/Code/Matlab/Reifenverschleiss/Online_Modelle/Raspberry_-_Copy_Nitty/Test.elf'
+            model_stop_command = 'sudo killall /home/pi/MATLAB_ws/R2020b/TWE_Raspberry.elf'
             stop_prog = subprocess.Popen(model_stop_command, shell=True, stdin=None, stdout=None, stderr=None, close_fds=True)
             print('Stopping model')  
             
