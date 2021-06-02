@@ -48,7 +48,7 @@ def decode_message(db, input_msg):
    
 def get_msg_by_name(message_name, formatted_msg, db, msg):
     if re.match(rf"\n{re.escape(message_name)}\(\n", formatted_msg) is not None:
-        decoded_signals = decode_message(ICAN_db, msg)
+        decoded_signals = decode_message(db, msg)
         
         # Serializing the data to sned over network
         signal_values = list(decoded_signals.values())
@@ -56,19 +56,21 @@ def get_msg_by_name(message_name, formatted_msg, db, msg):
         udp_msg = struct.pack('%sf' % len(signal_values), *signal_values)   
         return udp_msg
     else:
+        # print('Else')
         return None
         
-def send_via_udp(udp_msg, port):
+def send_via_udp(sock, udp_msg, name, port):
     #Send the message
     if udp_msg is not None:
         try:
             sock.sendto(udp_msg, (UDP_IP, port))
-            #print('Sending data: {0} to IP:{1} Port:{2}'.format(udp_msg, UDP_IP, port))
+            print('Sending data: {0} to IP:{1} Port:{2}'.format(name, UDP_IP, port))
         # except:
             # pass
             #print('Cannot send UDP messages')
             return True
         except Exception as e:
+            print('Exception --- ',str(e))
             return str(e)
     else:
         return False
@@ -86,14 +88,14 @@ def format_and_send_CAN(msg_list, sock, db_list):
                                             single_line=False)
 
     formatted_ECAN_msg = format_message_by_frame_id(ECAN_db, ECAN_msg.arbitration_id, ECAN_msg.data, decode_choices=None,
-                                            single_line=False)      
-
+                                            single_line=False) 
+                                            
     #Select the message to send
     ICAN_msg_names = ['LWI_01', 'SARA_11', 'Fahrwerk_01', 'ESP_05', 'Kombi_03', 'NavData_03', 'NavData_02']
     ports = [6001, 6002, 6003, 6004, 6005, 6006, 6007]
     for name, port in zip(ICAN_msg_names, ports):
         udp_msg = get_msg_by_name(name, formatted_ICAN_msg, ICAN_db, ICAN_msg)
-        sent = send_via_udp(udp_msg, port)
+        sent = send_via_udp(sock, udp_msg, name, port)
         if sent:
             break
             
@@ -101,7 +103,7 @@ def format_and_send_CAN(msg_list, sock, db_list):
     ports = [7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008, 7009, 7010]
     for name, port in zip(ECAN_msg_names, ports):
         udp_msg = get_msg_by_name(name, formatted_ECAN_msg, ECAN_db, ECAN_msg)
-        sent = send_via_udp(udp_msg, port)
+        sent = send_via_udp(sock, udp_msg, name, port)
         if sent:
             break    
     
@@ -127,7 +129,7 @@ def get_initial_values():
 		for row in csvReader:
 			if row:
 				row_index +=1
-				full_log.append([float(row[0])])
+				full_log.append([float(i) for i in row])
 		
 	data_unpacked = full_log[-1]
 	return data_unpacked
@@ -150,7 +152,7 @@ def send_initial_value(start_value, sock):
 def recieve_udp(sock, client, data_length):
     data, addr = sock.recvfrom(1024)
     data_unpacked_tuple = struct.unpack('%sf' % data_length, data)
-    print('Recieved message: ', data_unpacked_tuple)
+    # print('Recieved message: ', data_unpacked_tuple)
     return data, data_unpacked_tuple
     
 
@@ -162,8 +164,12 @@ def save_and_publish(data, data_unpacked_tuple, client, first_time = []):
         
     with open("/home/pi/DataFromModel/data_log.csv", "a") as csv_file:
         try:
+            print('========================================================')
             print('>>>>>Saved message: ', data_unpacked_tuple)
-            csv_file.write("{0}\n".format(data_unpacked_tuple[0]))
+            print('========================================================')
+            writer = csv.writer(csv_file)
+            writer.writerow(data_unpacked_tuple)
+            # csv_file.write("{0}\n".format(data_unpacked_tuple[0]))
             csv_file.flush()
             
             client.publish('test/topic', data)
@@ -230,7 +236,7 @@ def start_communication(ICAN_db, ECAN_db, start_value, client):
             
             # Save messages every 1 minute
             sampling_time = 0.05
-            interval = 10
+            interval = 100
             counter = 0 
             
             while True:
@@ -238,8 +244,8 @@ def start_communication(ICAN_db, ECAN_db, start_value, client):
                     counter += 1
                     
                     #Recieve all the CAN messages
-                    ICAN_msg = ICAN_bus.recv(0.5)
-                    ECAN_msg = ECAN_bus.recv(0.5)
+                    ICAN_msg = ICAN_bus.recv(0.05)
+                    ECAN_msg = ECAN_bus.recv(0.05)
                     
                     # Check for 5 seconds whether the CAN bus is sleeping 
                     if ICAN_msg is None and ECAN_msg is None:
@@ -254,7 +260,7 @@ def start_communication(ICAN_db, ECAN_db, start_value, client):
                     err = send_initial_value(start_value, sock_send)
                     
                     # Recieve current values from the model via UDP
-                    data, data_unpacked_tuple = recieve_udp(sock_recieve, client, data_length=1)
+                    data, data_unpacked_tuple = recieve_udp(sock_recieve, client, data_length=34)
                     
                     if counter > interval/sampling_time:
                         # Save to a file and publish via MQTT 
@@ -265,7 +271,8 @@ def start_communication(ICAN_db, ECAN_db, start_value, client):
                     print('Interrupted by user')
                     return 1
                     
-                except:
+                except Exception as e:
+                    print(str(e))
                     pass
 
 
@@ -300,7 +307,7 @@ if __name__ == "__main__":
             shutdown_trigger = start_communication(ICAN_db, ECAN_db, start_value, client)
             
             if shutdown_trigger:
-                #subprocess.call("sudo shutdown -h now", shell=True)
+                # subprocess.call("sudo shutdown -h now", shell=True)
                 print('-------Shut down trigger here -------')
             
             # Stop the simulink model
@@ -308,6 +315,7 @@ if __name__ == "__main__":
             stop_prog = subprocess.Popen(model_stop_command, shell=True, stdin=None, stdout=None, stderr=None, close_fds=True)
             print('Stopping model')  
             
-    except:
+    except Exception as e:
         print('Error in main module')
+        print(str(e))
         
