@@ -19,18 +19,15 @@ from cantools.subparsers.utils import _format_signals
 UDP_IP = "127.0.0.1"
 
 # The callback for when the MQTT client receives a CONNACK response from the server.
-def on_connect(client, userdata, flags, rc):
+def on_connect(client, obj, flags, rc):
     print("Connected with result code "+str(rc))
-
-    # Subscribing in on_connect() means that if we lose the connection and
-    # reconnect then subscriptions will be renewed.
-    #client.subscribe("test/topic")
+    client.subscribe("test/topic")
 
 
 # The callback for when a PUBLISH message is received from the server.
-def on_message(client, userdata, msg):
+def on_message(client, obj, msg):
     print(msg.topic+" "+str(msg.payload))
-
+    
 
 def decode_message(db, input_msg):  
     try:
@@ -91,8 +88,8 @@ def format_and_send_CAN(msg_list, sock, db_list):
                                             single_line=False) 
                                             
     #Select the message to send
-    ICAN_msg_names = ['LWI_01', 'SARA_11', 'Fahrwerk_01', 'ESP_05', 'Kombi_03', 'NavData_03', 'NavData_02']
-    ports = [6001, 6002, 6003, 6004, 6005, 6006, 6007]
+    ICAN_msg_names = ['LWI_01', 'SARA_11', 'Fahrwerk_01', 'ESP_05', 'Kombi_03', 'NavData_03', 'NavData_02', 'Kombi_02']
+    ports = [6001, 6002, 6003, 6004, 6005, 6006, 6007, 6008]
     for name, port in zip(ICAN_msg_names, ports):
         udp_msg = get_msg_by_name(name, formatted_ICAN_msg, ICAN_db, ICAN_msg)
         sent = send_via_udp(sock, udp_msg, name, port)
@@ -136,7 +133,7 @@ def get_initial_values():
 
 
 def send_initial_value(start_value, sock):
-    port = 6060    
+    port = 8001   
     try:
         data = struct.pack('%sf' % len(start_value), *start_value)   
         sock.sendto(data, (UDP_IP, port))
@@ -149,14 +146,18 @@ def send_initial_value(start_value, sock):
     return 0
   
 
-def recieve_udp(sock, client, data_length):
+def recieve_udp(sock, data_length):
     data, addr = sock.recvfrom(1024)
     data_unpacked_tuple = struct.unpack('%sf' % data_length, data)
     # print('Recieved message: ', data_unpacked_tuple)
     return data, data_unpacked_tuple
     
 
-def save_and_publish(data, data_unpacked_tuple, client, first_time = []):
+def publish_to_mqtt(data, client):
+    client.publish('test/topic', data)
+
+
+def save_to_memory(data, data_unpacked_tuple, first_time = []):
     if first_time == []:
         os.system('sudo rm /home/pi/DataFromModel/data_log.csv')
         print('Deleted old log file')
@@ -171,8 +172,6 @@ def save_and_publish(data, data_unpacked_tuple, client, first_time = []):
             writer.writerow(data_unpacked_tuple)
             # csv_file.write("{0}\n".format(data_unpacked_tuple[0]))
             csv_file.flush()
-            
-            client.publish('test/topic', data)
             
         # except:
             # pass
@@ -225,12 +224,16 @@ def start_communication(ICAN_db, ECAN_db, start_value, client):
     with can.interface.Bus(bustype="socketcan", channel='can0', bitrate=500000) as ICAN_bus, can.interface.Bus(bustype="socketcan", channel='can1', bitrate=500000) as ECAN_bus:
         
         # Generate a UDP socket
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock_send, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock_recieve:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock_send, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock_recieve_to_save, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock_recieve_to_mqtt:
             
-            # Port for recieving UDP message from the model
+            # Port for recieving UDP message from the model and save to sd card
             port = 6161
-            sock_recieve.bind((UDP_IP, port))
-            sock_recieve.settimeout(0.05)
+            sock_recieve_to_save.bind((UDP_IP, port))
+            sock_recieve_to_save.settimeout(0.05)
+            # Port for recieving UDP message from the model and send via mqtt
+            port = 6262
+            sock_recieve_to_mqtt.bind((UDP_IP, port))
+            sock_recieve_to_mqtt.settimeout(0.05)
             
             err = 0
             
@@ -259,12 +262,16 @@ def start_communication(ICAN_db, ECAN_db, start_value, client):
                     # Send the Initial values to the model via UDP
                     err = send_initial_value(start_value, sock_send)
                     
-                    # Recieve current values from the model via UDP
-                    data, data_unpacked_tuple = recieve_udp(sock_recieve, client, data_length=34)
+                    # Recieve current values to save from the model via UDP
+                    data_save, data_save_unpacked_tuple = recieve_udp(sock_recieve_to_save, data_length=34)
+                    
+                    # Recieve current values to send via mqtt from the model via UDP
+                    data_to_mqtt, data_to_mqtt_unpacked_tuple = recieve_udp(sock_recieve_to_mqtt, data_length=1)                    
                     
                     if counter > interval/sampling_time:
                         # Save to a file and publish via MQTT 
-                        save_and_publish(data, data_unpacked_tuple, client)
+                        save_to_memory(data_save, data_save_unpacked_tuple)
+                        publish_to_mqtt(data_to_mqtt, client)
                         counter = 0
                     
                 except KeyboardInterrupt:
@@ -272,7 +279,7 @@ def start_communication(ICAN_db, ECAN_db, start_value, client):
                     return 1
                     
                 except Exception as e:
-                    print(str(e))
+                    #print(str(e))
                     pass
 
 
@@ -300,9 +307,9 @@ if __name__ == "__main__":
             client = MQTT_initialize()
 
             # Start the simulink model
-            model_start_command = 'sudo /home/pi/MATLAB_ws/R2020b/TWE_Raspberry.elf'
-            start_prog = subprocess.Popen(model_start_command, shell=True, stdin=None, stdout=None, stderr=None, close_fds=True)
-            print('Starting model')
+            # model_start_command = 'sudo /home/pi/MATLAB_ws/R2020b/TWE_Raspberry.elf'
+            # start_prog = subprocess.Popen(model_start_command, shell=True, stdin=None, stdout=None, stderr=None, close_fds=True)
+            # print('Starting model')
             
             shutdown_trigger = start_communication(ICAN_db, ECAN_db, start_value, client)
             
