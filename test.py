@@ -43,25 +43,20 @@ def decode_message(db, input_msg):
     return decoded_signals
     
    
-def get_msg_by_name(message_name, formatted_msg, db, msg):
-    if re.match(rf"\n{re.escape(message_name)}\(\n", formatted_msg) is not None:
-        decoded_signals = decode_message(db, msg)
-        
-        # Serializing the data to sned over network
-        signal_values = list(decoded_signals.values())
-        
-        udp_msg = struct.pack('%sf' % len(signal_values), *signal_values)   
-        return udp_msg
-    else:
-        # print('Else')
-        return None
+def get_udp_msg_by_name(db, msg):
+    decoded_signals = decode_message(db, msg)
+    # Serializing the data to sned over network
+    signal_values = list(decoded_signals.values())
+    udp_msg = struct.pack('%sf' % len(signal_values), *signal_values)   
+    return udp_msg
         
 def send_via_udp(sock, udp_msg, name, port):
     #Send the message
     if udp_msg is not None:
         try:
             sock.sendto(udp_msg, (UDP_IP, port))
-            print('Sending data: {0} to IP:{1} Port:{2}'.format(name, UDP_IP, port))
+            print('Sending data: {0} to Port: {1}'.format(name, port))
+            print('=====================================================')
         # except:
             # pass
             #print('Cannot send UDP messages')
@@ -69,11 +64,18 @@ def send_via_udp(sock, udp_msg, name, port):
         except Exception as e:
             print('Exception --- ',str(e))
             return str(e)
-    else:
+    else:  
         return False
-        #print('Message not recieved')    
         
-            
+
+def get_msg_name(dbase, frame_id):
+    try:
+        message = dbase.get_message_by_frame_id(frame_id)
+    except KeyError:
+        return ' Unknown frame id {0} (0x{0:x})'.format(frame_id)
+    return message.name
+    
+        
 def format_and_send_CAN(msg_list, sock, db_list):
     # Both the CAN may contain messages with same name
     ICAN_msg = msg_list[0]
@@ -83,27 +85,37 @@ def format_and_send_CAN(msg_list, sock, db_list):
     
     formatted_ICAN_msg = format_message_by_frame_id(ICAN_db, ICAN_msg.arbitration_id, ICAN_msg.data, decode_choices=None,
                                             single_line=False)
-
+    ICAN_msg_name = get_msg_name(ICAN_db, ICAN_msg.arbitration_id)
+    print('Recieved ICAN:', ICAN_msg_name)
     formatted_ECAN_msg = format_message_by_frame_id(ECAN_db, ECAN_msg.arbitration_id, ECAN_msg.data, decode_choices=None,
-                                            single_line=False) 
-                                            
-    #Select the message to send
-    ICAN_msg_names = ['LWI_01', 'SARA_11', 'Fahrwerk_01', 'ESP_05', 'Kombi_03', 'NavData_03', 'NavData_02', 'Kombi_02']
+                                            single_line=False)
+    ECAN_msg_name = get_msg_name(ECAN_db, ECAN_msg.arbitration_id) 
+    print('Recieved ECAN:', ECAN_msg_name)
+    # Select the message to send
+    Reqd_ICAN_msgs = ['LWI_01', 'SARA_11', 'Fahrwerk_01', 'ESP_05', 'Kombi_03', 'NavData_03', 'NavData_02', 'Kombi_02']
     ports = [6001, 6002, 6003, 6004, 6005, 6006, 6007, 6008]
-    for name, port in zip(ICAN_msg_names, ports):
-        udp_msg = get_msg_by_name(name, formatted_ICAN_msg, ICAN_db, ICAN_msg)
-        sent = send_via_udp(sock, udp_msg, name, port)
-        if sent:
-            break
+    # ICAN_msg_names = ['LWI_01']
+    # ports = [6001]
+    if ICAN_msg_name in Reqd_ICAN_msgs:
+        idx = Reqd_ICAN_msgs.index(ICAN_msg_name)
+        udp_msg = get_udp_msg_by_name(ICAN_db, ICAN_msg)
+        print('=====================================================')
+        print('ICAN sending: ', ICAN_msg_name)
+        sent = send_via_udp(sock, udp_msg, ICAN_msg_name, ports[idx])
+        # print(f'Sending {ICAN_msg_name} in port {ports[idx]}')
             
-    ECAN_msg_names = ['ESP_03', 'DEV_RDK_Resp_03',  'DEV_RDK_Resp_04', 'DEV_RDK_Resp_05',  'DEV_RDK_Resp_06', 'DEV_RDK_Resp_07',  'DEV_RDK_Resp_08', 'DEV_RDK_Resp_09',  'DEV_RDK_Resp_0A', 'Klemmen_Status_01']
+    Reqd_ECAN_msgs = ['ESP_03', 'DEV_RDK_Resp_03',  'DEV_RDK_Resp_04', 'DEV_RDK_Resp_05',  'DEV_RDK_Resp_06', 'DEV_RDK_Resp_07',  'DEV_RDK_Resp_08', 'DEV_RDK_Resp_09',  'DEV_RDK_Resp_0A', 'Klemmen_Status_01']
     ports = [7001, 7002, 7003, 7004, 7005, 7006, 7007, 7008, 7009, 7010]
-    for name, port in zip(ECAN_msg_names, ports):
-        udp_msg = get_msg_by_name(name, formatted_ECAN_msg, ECAN_db, ECAN_msg)
-        sent = send_via_udp(sock, udp_msg, name, port)
-        if sent:
-            break    
-    
+    # ECAN_msg_names = ['DEV_RDK_Resp_03', 'DEV_RDK_Resp_05', 'DEV_RDK_Resp_09', 'DEV_RDK_Resp_0B']
+    # ports = [7001, 7002, 7003, 7004]
+    if ECAN_msg_name in Reqd_ECAN_msgs:
+        idx = Reqd_ECAN_msgs.index(ECAN_msg_name)
+        udp_msg = get_udp_msg_by_name(ECAN_db, ECAN_msg)
+        print('=====================================================')
+        print('ECAN sending: ', ECAN_msg_name)
+        sent = send_via_udp(sock, udp_msg, ECAN_msg_name, ports[idx])
+        # print(f'Sending {ECAN_msg_name} in port {ports[idx]}')
+        
     return 0
     
     
@@ -137,23 +149,25 @@ def send_initial_value(start_value, sock):
     try:
         data = struct.pack('%sf' % len(start_value), *start_value)   
         sock.sendto(data, (UDP_IP, port))
-        #print('Sending data: {0} to IP:{1} Port:{2}'.format(data, UDP_IP, port))      
-    # except:
-        # pass
-        #print('Cannot send initial values')    
+        # print('Sending initial values')
+        # print('Sending data: {0} to IP:{1} Port:{2}'.format(data, UDP_IP, port))         
     except Exception as e:
+        print(str(e))
         return str(e)
     return 0
   
 
 def recieve_udp(sock, data_length):
-    data, addr = sock.recvfrom(1024)
-    data_unpacked_tuple = struct.unpack('%sf' % data_length, data)
-    # print('Recieved message: ', data_unpacked_tuple)
-    return data, data_unpacked_tuple
-    
+    try:
+        data, addr = sock.recvfrom(1024)
+        data_unpacked_tuple = struct.unpack('%sf' % data_length, data)
+        return data, data_unpacked_tuple
+    except Exception as e:
+        print('Recv UDP: ', str(e))
+        return None, None
 
 def publish_to_mqtt(data, client):
+    print('Publishing to MQTT')
     client.publish('test/topic', data)
 
 
@@ -172,11 +186,9 @@ def save_to_memory(data, data_unpacked_tuple, first_time = []):
             writer.writerow(data_unpacked_tuple)
             # csv_file.write("{0}\n".format(data_unpacked_tuple[0]))
             csv_file.flush()
-            
-        # except:
-            # pass
-            #print('Cannot recieve UDP messages')
+
         except Exception as e:
+            print(str(e))
             return str(e)
     return 0
 
@@ -239,7 +251,7 @@ def start_communication(ICAN_db, ECAN_db, start_value, client):
             
             # Save messages every 1 minute
             sampling_time = 0.05
-            interval = 100
+            interval = 25
             counter = 0 
             
             while True:
@@ -247,8 +259,8 @@ def start_communication(ICAN_db, ECAN_db, start_value, client):
                     counter += 1
                     
                     #Recieve all the CAN messages
-                    ICAN_msg = ICAN_bus.recv(0.05)
-                    ECAN_msg = ECAN_bus.recv(0.05)
+                    ICAN_msg = ICAN_bus.recv(0.0)
+                    ECAN_msg = ECAN_bus.recv(0.0)
                     
                     # Check for 5 seconds whether the CAN bus is sleeping 
                     if ICAN_msg is None and ECAN_msg is None:
@@ -258,18 +270,16 @@ def start_communication(ICAN_db, ECAN_db, start_value, client):
                     #Format the message according to the CAN database file & send via UDP
                     else:
                         err = format_and_send_CAN([ICAN_msg, ECAN_msg], sock_send, [ICAN_db, ECAN_db])
-                            
-                    # Send the Initial values to the model via UDP
-                    err = send_initial_value(start_value, sock_send)
-                    
+                    if counter < 5:
+                        # Send the Initial values to the model via UDP
+                        err = send_initial_value(start_value, sock_send)
                     # Recieve current values to save from the model via UDP
-                    data_save, data_save_unpacked_tuple = recieve_udp(sock_recieve_to_save, data_length=34)
-                    
+                    data_save, data_save_unpacked_tuple = recieve_udp(sock_recieve_to_save, data_length=38)
                     # Recieve current values to send via mqtt from the model via UDP
-                    data_to_mqtt, data_to_mqtt_unpacked_tuple = recieve_udp(sock_recieve_to_mqtt, data_length=1)                    
-                    
-                    if counter > interval/sampling_time:
+                    data_to_mqtt, data_to_mqtt_unpacked_tuple = recieve_udp(sock_recieve_to_mqtt, data_length=61)
+                    if counter > interval/sampling_time and data_save is not None and data_to_mqtt is not None:
                         # Save to a file and publish via MQTT 
+                        print('====== Saving and publishing ======')
                         save_to_memory(data_save, data_save_unpacked_tuple)
                         publish_to_mqtt(data_to_mqtt, client)
                         counter = 0
@@ -279,7 +289,7 @@ def start_communication(ICAN_db, ECAN_db, start_value, client):
                     return 1
                     
                 except Exception as e:
-                    #print(str(e))
+                    # print(str(e))
                     pass
 
 
@@ -291,7 +301,6 @@ if __name__ == "__main__":
     ICAN_db = cantools.database.load_file(os.path.join(path, 'MLBevo_Gen2_MLBevo_ICAN_KMatrix_V8.19.05F_20200420_AM.dbc'))
     ECAN_db = cantools.database.load_file(os.path.join(path, 'MLBevo_Gen2_MLBevo_ECAN_KMatrix_V8.15.00F_20171109_SE_RDK_merged.dbc'))
     print('Completed reading the dbc file')
-
     try:
         # Check if recieving CAN messages
         CAN_available = check_CAN_status()
@@ -306,7 +315,7 @@ if __name__ == "__main__":
             
             client = MQTT_initialize()
 
-            # Start the simulink model
+            # # Start the simulink model
             # model_start_command = 'sudo /home/pi/MATLAB_ws/R2020b/TWE_Raspberry.elf'
             # start_prog = subprocess.Popen(model_start_command, shell=True, stdin=None, stdout=None, stderr=None, close_fds=True)
             # print('Starting model')
