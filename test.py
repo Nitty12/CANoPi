@@ -1,4 +1,5 @@
 import time
+from time import sleep
 import os
 import subprocess
 import can
@@ -10,6 +11,7 @@ import json
 import re
 import csv
 import paho.mqtt.client as mqtt
+from gpiozero import DigitalOutputDevice
 
 from cantools.subparsers.utils import format_message_by_frame_id
 from cantools.subparsers.utils import _format_message_multi_line
@@ -87,7 +89,7 @@ def format_and_send_CAN(msg_list, sock, db_list):
         formatted_ICAN_msg = format_message_by_frame_id(ICAN_db, ICAN_msg.arbitration_id, ICAN_msg.data, decode_choices=None,
                                                 single_line=False)
         ICAN_msg_name = get_msg_name(ICAN_db, ICAN_msg.arbitration_id)
-        print('Recieved ICAN:', ICAN_msg_name)
+        # print('Recieved ICAN:', ICAN_msg_name)
         
         # Select the message to send
         Reqd_ICAN_msgs = ['LWI_01', 'SARA_11', 'Fahrwerk_01', 'ESP_05', 'Kombi_03', 'NavData_03', 'NavData_02', 'Kombi_02']
@@ -104,7 +106,7 @@ def format_and_send_CAN(msg_list, sock, db_list):
         formatted_ECAN_msg = format_message_by_frame_id(ECAN_db, ECAN_msg.arbitration_id, ECAN_msg.data, decode_choices=None,
                                                 single_line=False)
         ECAN_msg_name = get_msg_name(ECAN_db, ECAN_msg.arbitration_id) 
-        print('Recieved ECAN:', ECAN_msg_name)
+        # print('Recieved ECAN:', ECAN_msg_name)
                 
         Reqd_ECAN_msgs = ['ESP_03', 'DEV_RDK_Resp_03',  'DEV_RDK_Resp_04', 'DEV_RDK_Resp_05',  'DEV_RDK_Resp_06', 'DEV_RDK_Resp_07',
                           'DEV_RDK_Resp_08', 'DEV_RDK_Resp_09',  'DEV_RDK_Resp_0A', 'Klemmen_Status_01']
@@ -306,58 +308,67 @@ if __name__ == "__main__":
     ICAN_db = cantools.database.load_file(os.path.join(path, 'MLBevo_Gen2_MLBevo_ICAN_KMatrix_V8.19.05F_20200420_AM.dbc'))
     ECAN_db = cantools.database.load_file(os.path.join(path, 'MLBevo_Gen2_MLBevo_ECAN_KMatrix_V8.15.00F_20171109_SE_RDK_merged.dbc'))
     print('Completed reading the dbc file')
-    try:
-        # Check if recieving CAN messages
-        CAN_available = check_CAN_status()
-        
-        if CAN_available:
-            # Copy the previous log for input to model
-            if os.path.isfile('/home/pi/DataFromModel/data_log.csv'):
-                os.system('sudo cp /home/pi/DataFromModel/data_log.csv /home/pi/DataToModel/data_log.csv')
-                print('Completed copying files')
+    
+    # GPIO 17
+    hardware_trigger = DigitalOutputDevice(17)
+    hardware_trigger.off()
+    
+    while True:            
+        try:
+            # Check if recieving CAN messages
+            CAN_available = check_CAN_status()
             
-            start_value = get_initial_values()
-            
-            client = MQTT_initialize()
-            
-            # # Start the simulink model
-            # model_start_command = 'sudo /home/pi/MATLAB_ws/R2020b/TWE_Raspberry.elf'
-            # start_prog = subprocess.Popen(model_start_command, shell=True, stdin=None, stdout=None, stderr=None, close_fds=True)
-            # print('Starting model')
-            
-            filters_ICAN = [{"can_id": 0x86, "can_mask": 0x7FF},
-                       {"can_id": 0x1A8, "can_mask": 0x7FF},
-                       {"can_id": 0x108, "can_mask": 0x7FF},
-                       {"can_id": 0x106, "can_mask": 0x7FF},
-                       {"can_id": 0x6B8, "can_mask": 0x7FF},
-                       {"can_id": 0x16A95418, "can_mask": 0x1FFFFFFF, "extended": True},
-                       {"can_id": 0x485, "can_mask": 0x7FF},
-                       {"can_id": 0x6B7, "can_mask": 0x7FF}]
-            filters_ECAN = [{"can_id": 0x103, "can_mask": 0xFFF},
-                       {"can_id": 0x1BFC5A03, "can_mask": 0x1FFFFFFF, "extended": True},
-                       {"can_id": 0x1BFC5A04, "can_mask": 0x1FFFFFFF, "extended": True},
-                       {"can_id": 0x1BFC5A05, "can_mask": 0x1FFFFFFF, "extended": True},
-                       {"can_id": 0x1BFC5A06, "can_mask": 0x1FFFFFFF, "extended": True},
-                       {"can_id": 0x1BFC5A07, "can_mask": 0x1FFFFFFF, "extended": True},
-                       {"can_id": 0x1BFC5A08, "can_mask": 0x1FFFFFFF, "extended": True},
-                       {"can_id": 0x1BFC5A09, "can_mask": 0x1FFFFFFF, "extended": True},
-                       {"can_id": 0x1BFC5A0A, "can_mask": 0x1FFFFFFF, "extended": True},
-                       {"can_id": 0x3C0, "can_mask": 0x7FF}]
-                       
-            shutdown_trigger = start_communication(ICAN_db, ECAN_db, start_value, client, filters_ICAN, filters_ECAN)
-            
-            # shutdown_trigger = start_communication(ICAN_db, ECAN_db, start_value, client)
-            
-            if shutdown_trigger:
-                # subprocess.call("sudo shutdown -h now", shell=True)
-                print('-------Shut down trigger here -------')
-            
-            # Stop the simulink model
-            model_stop_command = 'sudo killall /home/pi/MATLAB_ws/R2020b/TWE_Raspberry.elf'
-            stop_prog = subprocess.Popen(model_stop_command, shell=True, stdin=None, stdout=None, stderr=None, close_fds=True)
-            print('Stopping model')  
-            
-    except Exception as e:
-        print('Error in main module')
-        print(str(e))
+            if CAN_available:
+                # Copy the previous log for input to model
+                if os.path.isfile('/home/pi/DataFromModel/data_log.csv'):
+                    os.system('sudo cp /home/pi/DataFromModel/data_log.csv /home/pi/DataToModel/data_log.csv')
+                    print('Completed copying files')
+                
+                start_value = get_initial_values()
+                
+                client = MQTT_initialize()
+                
+                # Start the simulink model
+                model_start_command = 'sudo /home/pi/MATLAB_ws/R2020b/TWE_Raspberry.elf'
+                start_prog = subprocess.Popen(model_start_command, shell=True, stdin=None, stdout=None, stderr=None, close_fds=True)
+                print('Starting model')
+                
+                filters_ICAN = [{"can_id": 0x86, "can_mask": 0x7FF},
+                           {"can_id": 0x1A8, "can_mask": 0x7FF},
+                           {"can_id": 0x108, "can_mask": 0x7FF},
+                           {"can_id": 0x106, "can_mask": 0x7FF},
+                           {"can_id": 0x6B8, "can_mask": 0x7FF},
+                           {"can_id": 0x16A95418, "can_mask": 0x1FFFFFFF, "extended": True},
+                           {"can_id": 0x485, "can_mask": 0x7FF},
+                           {"can_id": 0x6B7, "can_mask": 0x7FF}]
+                filters_ECAN = [{"can_id": 0x103, "can_mask": 0xFFF},
+                           {"can_id": 0x1BFC5A03, "can_mask": 0x1FFFFFFF, "extended": True},
+                           {"can_id": 0x1BFC5A04, "can_mask": 0x1FFFFFFF, "extended": True},
+                           {"can_id": 0x1BFC5A05, "can_mask": 0x1FFFFFFF, "extended": True},
+                           {"can_id": 0x1BFC5A06, "can_mask": 0x1FFFFFFF, "extended": True},
+                           {"can_id": 0x1BFC5A07, "can_mask": 0x1FFFFFFF, "extended": True},
+                           {"can_id": 0x1BFC5A08, "can_mask": 0x1FFFFFFF, "extended": True},
+                           {"can_id": 0x1BFC5A09, "can_mask": 0x1FFFFFFF, "extended": True},
+                           {"can_id": 0x1BFC5A0A, "can_mask": 0x1FFFFFFF, "extended": True},
+                           {"can_id": 0x3C0, "can_mask": 0x7FF}]
+                           
+                shutdown_trigger = start_communication(ICAN_db, ECAN_db, start_value, client, filters_ICAN, filters_ECAN)
+                 
+                
+                if shutdown_trigger:
+                    hardware_trigger.on()
+                    sleep(1)
+                    hardware_trigger.off()
+                    
+                    # Stop the simulink model
+                    model_stop_command = 'sudo killall /home/pi/MATLAB_ws/R2020b/TWE_Raspberry.elf'
+                    stop_prog = subprocess.Popen(model_stop_command, shell=True, stdin=None, stdout=None, stderr=None, close_fds=True)
+                    print('Stopping model') 
+                    
+                    print('-------Shut down trigger here -------')
+                    subprocess.call("sudo shutdown -h now", shell=True)
+                
+        except Exception as e:
+            print('Error in main module')
+            print(str(e))
         
