@@ -57,7 +57,7 @@ def send_via_udp(sock, udp_msg, name, port):
     if udp_msg is not None:
         try:
             sock.sendto(udp_msg, (UDP_IP, port))
-            print('Sending data: {0} to Port: {1}'.format(name, port))
+            # print('Sending data: {0} to Port: {1}'.format(name, port))
             # print('=====================================================')
         # except:
             # pass
@@ -229,7 +229,30 @@ def check_CAN_status():
             return status
                 
 
-def start_communication(ICAN_db, ECAN_db, start_value, client, filters_ICAN, filters_ECAN):
+def check_CAN_msg_available(ICAN_status, ECAN_status, ICAN_msg, ECAN_msg, ICAN_db, ECAN_db):
+    Reqd_ICAN_msgs = ['LWI_01', 'SARA_11', 'Fahrwerk_01', 'ESP_05', 'Kombi_03', 'NavData_03', 'NavData_02', 'Kombi_02']
+    Reqd_ECAN_msgs = ['ESP_03', 'DEV_RDK_Resp_03',  'DEV_RDK_Resp_04', 'DEV_RDK_Resp_05',  'DEV_RDK_Resp_06', 'DEV_RDK_Resp_07',
+                          'DEV_RDK_Resp_08', 'DEV_RDK_Resp_09',  'DEV_RDK_Resp_0A', 'Klemmen_Status_01']
+    # Reqd_ECAN_msgs = ['ESP_03', 'DEV_RDK_Resp_03', 'DEV_RDK_Resp_05', 'DEV_RDK_Resp_07', 'DEV_RDK_Resp_09', 'Klemmen_Status_01']
+    if ICAN_msg is not None :
+        ICAN_msg_name = get_msg_name(ICAN_db, ICAN_msg.arbitration_id)
+        if ICAN_msg_name in Reqd_ICAN_msgs:
+            idx = Reqd_ICAN_msgs.index(ICAN_msg_name)
+            if not ICAN_status[idx]:
+                ICAN_status[idx] = True
+            # print(ICAN_status)
+            
+    if ECAN_msg is not None : 
+        ECAN_msg_name = get_msg_name(ECAN_db, ECAN_msg.arbitration_id)   
+        if ECAN_msg_name in Reqd_ECAN_msgs:
+            idx = Reqd_ECAN_msgs.index(ECAN_msg_name)
+            if not ECAN_status[idx]:
+                ECAN_status[idx] = True
+            # print(ECAN_status)
+    
+    return ICAN_status, ECAN_status
+
+def start_communication(ICAN_db, ECAN_db, start_value, client, filters_ICAN, filters_ECAN, status_led):
     """Receives all messages, select the needed message and send via UDP
         Send the initial values to the model and recieve the current outputs
         from the model and save it. Additionally send the output over 
@@ -256,13 +279,21 @@ def start_communication(ICAN_db, ECAN_db, start_value, client, filters_ICAN, fil
             counter = 0 
             prev_time = time.time()
             
+            ICAN_status = [False for i in range(8)]
+            ECAN_status = [False for i in range(10)]
+            
             while True:
                 try:
                     counter += 1
                     
+                    # To add status LED if all the reqd msgs are available in the last minute or so
+                    
                     #Recieve all the CAN messages
                     ICAN_msg = ICAN_bus.recv(0.0)
                     ECAN_msg = ECAN_bus.recv(0.0)
+                    
+                    ICAN_status, ECAN_status = check_CAN_msg_available(ICAN_status, ECAN_status, ICAN_msg, ECAN_msg, ICAN_db, ECAN_db)
+                    # print(status_led.value)
                     
                     # Check for 5 seconds whether the CAN bus is sleeping 
                     if ICAN_msg is None and ECAN_msg is None:
@@ -277,7 +308,7 @@ def start_communication(ICAN_db, ECAN_db, start_value, client, filters_ICAN, fil
                         # Send the Initial values to the model via UDP
                         err = send_initial_value(start_value, sock_send)
                     
-                    if time.time() - prev_time > 30:
+                    if time.time() - prev_time > 60:
                         prev_time = time.time()
                         # Recieve current values to save from the model via UDP
                         data_save, data_save_unpacked_tuple = recieve_udp(sock_recieve_to_save, data_length=38)
@@ -289,6 +320,19 @@ def start_communication(ICAN_db, ECAN_db, start_value, client, filters_ICAN, fil
                             print('====== Saving and publishing ======')
                             save_to_memory(data_save, data_save_unpacked_tuple)
                             publish_to_mqtt(data_to_mqtt, client)
+                        
+                        # Turn GPIO 22 on if all reqd msgs was recieved in last 30 sec    
+                        if all(ICAN_status) and all(ECAN_status):
+                            print('Status ON')
+                            status_led.on()
+                        else:
+                            print('Status OFF')
+                            print('ICAN status: ',ICAN_status)
+                            print('ECAN status: ',ECAN_status)
+                            status_led.off()
+                        ICAN_status = [False for i in range(8)]
+                        ECAN_status = [False for i in range(10)]
+                        
                         counter = 0
                     
                 except KeyboardInterrupt:
@@ -306,6 +350,10 @@ if __name__ == "__main__":
     # GPIO 17
     hardware_trigger = DigitalOutputDevice(17)
     hardware_trigger.on()
+    
+    # GPIO 22
+    status_led = DigitalOutputDevice(22)
+    status_led.off()
     
     print('Reading the dbc file ...')
     path = os.path.dirname(os.path.abspath(__file__))
@@ -353,7 +401,7 @@ if __name__ == "__main__":
                            {"can_id": 0x1BFC5A0A, "can_mask": 0x1FFFFFFF, "extended": True},
                            {"can_id": 0x3C0, "can_mask": 0x7FF}]
                            
-                shutdown_trigger = start_communication(ICAN_db, ECAN_db, start_value, client, filters_ICAN, filters_ECAN)
+                shutdown_trigger = start_communication(ICAN_db, ECAN_db, start_value, client, filters_ICAN, filters_ECAN, status_led)
                  
                 
                 if shutdown_trigger:
