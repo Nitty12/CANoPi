@@ -57,7 +57,7 @@ def send_via_udp(sock, udp_msg, name, port):
     if udp_msg is not None:
         try:
             sock.sendto(udp_msg, (UDP_IP, port))
-            # print('Sending data: {0} to Port: {1}'.format(name, port))
+            print('Sending data: {0} to Port: {1}'.format(name, port))
             # print('=====================================================')
         # except:
             # pass
@@ -303,15 +303,16 @@ def start_communication(ICAN_db, ECAN_db, start_value, client, filters_ICAN, fil
 if __name__ == "__main__":
     t_start = time.time()
     
+    # GPIO 17
+    hardware_trigger = DigitalOutputDevice(17)
+    hardware_trigger.on()
+    
     print('Reading the dbc file ...')
     path = os.path.dirname(os.path.abspath(__file__))
     ICAN_db = cantools.database.load_file(os.path.join(path, 'MLBevo_Gen2_MLBevo_ICAN_KMatrix_V8.19.05F_20200420_AM.dbc'))
     ECAN_db = cantools.database.load_file(os.path.join(path, 'MLBevo_Gen2_MLBevo_ECAN_KMatrix_V8.15.00F_20171109_SE_RDK_merged.dbc'))
     print('Completed reading the dbc file')
     
-    # GPIO 17
-    hardware_trigger = DigitalOutputDevice(17)
-    hardware_trigger.off()
     
     while True:            
         try:
@@ -356,8 +357,6 @@ if __name__ == "__main__":
                  
                 
                 if shutdown_trigger:
-                    hardware_trigger.on()
-                    sleep(1)
                     hardware_trigger.off()
                     
                     # Stop the simulink model
